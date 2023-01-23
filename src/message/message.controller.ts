@@ -13,8 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiTags } from '@nestjs/swagger';
-import { UUIDVersion } from 'class-validator';
+import { ApiParam, ApiTags } from '@nestjs/swagger';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -63,10 +62,12 @@ export class MessageController {
 
   @UseGuards(JwtAuthGuard)
   @Get('viewMessages/:page/:friendId')
+  @ApiParam({name: 'page', type: 'number'})
+  @ApiParam({name: 'friendId'})
   async viewMessages(
     @Req() req: any,
     @Param('page') page: number,
-    @Param('friendId') friendId: UUIDVersion,
+    @Param('friendId') friendId: string,
   ) {
     const { id } = req.user;
     return this.messageService.viewMessages(id, friendId, page);

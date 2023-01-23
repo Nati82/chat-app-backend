@@ -1,18 +1,24 @@
-import { IsOptional, IsString, IsUUID, UUIDVersion } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class MessageDto {
+  @ApiProperty()
   @IsOptional()
   file: string;
 
+  @ApiProperty()
   @IsString()
   message: string;
 
+  @ApiProperty()
   @IsUUID()
-  sentTo: UUIDVersion;
+  sentTo: string;
 
+  @ApiProperty()
   @IsOptional()
-  sentBy: UUIDVersion;
+  sentBy: string;
 
+  @ApiProperty()
   @IsOptional()
   date: Date;
 }

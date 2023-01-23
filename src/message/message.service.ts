@@ -44,7 +44,7 @@ export class MessageService {
     }
 
     const friend = await this.userService.friendsWithMessage(
-      id as UUIDVersion,
+      id,
       message.sentTo,
     );
 
@@ -54,7 +54,7 @@ export class MessageService {
       });
     }
 
-    message.sentBy = id as UUIDVersion;
+    message.sentBy = id;
     message.date = new Date();
 
     const newMessage = this.message.create(message);
@@ -102,7 +102,7 @@ export class MessageService {
       .getMany();
   }
 
-  async viewMessages(userId: UUIDVersion, friendId: UUIDVersion, page: number) {
+  async viewMessages(userId: string, friendId: string, page: number) {
     /* 
       This method needs to be fixed
      */
@@ -118,7 +118,7 @@ export class MessageService {
       .getMany();
   }
 
-  async editMessage(messageId: UUIDVersion, message: string) {
+  async editMessage(messageId: string, message: string) {
     const { affected } = await this.message
       .createQueryBuilder('messages')
       .update()
@@ -141,7 +141,7 @@ export class MessageService {
     });
   }
 
-  async deleteMessage(_username: string, messageId: UUIDVersion[]) {
+  async deleteMessage(_username: string, messageId: string[]) {
     const messages = await this.message.find({ id: In(messageId) });
     messages.forEach((m) => {
       m.files.forEach(async (f) => {

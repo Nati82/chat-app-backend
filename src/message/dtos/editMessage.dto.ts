@@ -1,9 +1,12 @@
-import { IsString, IsUUID, UUIDVersion } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsUUID } from 'class-validator';
 
 export class EditMessageDto {
+  @ApiProperty()
   @IsUUID()
-  messageId: UUIDVersion;
+  messageId: string;
 
+  @ApiProperty()
   @IsString()
   message: string;
 }

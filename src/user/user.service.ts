@@ -114,7 +114,7 @@ export class UserService {
     });
   }
 
-  async friendsWithMessage(sentBy: UUIDVersion, sentTo: UUIDVersion) {
+  async friendsWithMessage(sentBy: string, sentTo: string) {
     return this.friend.findOne({
       where: [
         {
@@ -129,7 +129,7 @@ export class UserService {
     });
   }
 
-  async removeFriend(id: UUIDVersion) {
+  async removeFriend(id: string) {
     const friend = this.friend.findOne(id);
     const { affected } = await this.friend.delete(id);
 

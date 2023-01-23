@@ -10,10 +10,11 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Friends APIs')
-    .setDescription('Friends API description')
+    .setTitle('Chat-app APIs')
+    .setDescription('A simple chat app')
     .setVersion('1.0')
-    .addTag('Friends')
+    .addTag('Chat-app')
+    .addBearerAuth()
     .build();
 
   const options: SwaggerDocumentOptions = {
@@ -21,6 +22,12 @@ async function bootstrap() {
   };
   const document = SwaggerModule.createDocument(app, config, options);
   SwaggerModule.setup('api', app, document);
+
+  app.enableCors({
+    origin: '*',
+    allowedHeaders: 'Content-Type, Authorization',
+    methods: 'GET, POST, PATCH, DELETE, OPTIONS',
+  });
   
   await app.listen(4000);
 }

@@ -8,6 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UserDto } from 'src/auth/dtos/user.dto';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { FriendReqDto } from './dtos/friend-request.dto';
 import { FriendDto } from './dtos/friend.dto';
 import { UserService } from './user.service';
 
+@ApiTags('user')
 @Controller('user')
 export class UserController {
   constructor(private userService: UserService) {}

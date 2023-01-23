@@ -17,7 +17,8 @@ import { User } from './entities/User.Entity';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 import { UserDto } from './dtos/user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiParam, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { LoginUserDto } from './dtos/login-user.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -40,13 +41,17 @@ export class AuthController {
 
   @UseGuards(LocalAuthGuard)
   @Post('/login')
+  @ApiBody({ type: LoginUserDto })
   async login(@Req() req: any) {
     return this.authService.login(req.user);
   }
 
+  @ApiSecurity('bearer')
   @UseGuards(JwtAuthGuard)
   @Patch('/update')
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('profile'))
+  @ApiBody({ type: UserDto})
   async update(
     @Req() req: any,
     @UploadedFile() file,
@@ -57,6 +62,7 @@ export class AuthController {
     return this.authService.update(id, fileValidationError, file, params);
   }
 
+  @ApiSecurity('bearer')
   @UseGuards(JwtAuthGuard)
   @Delete('/delete')
   async delete(@Req() req: any) {

@@ -1,32 +1,42 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
+import { IsEmail, IsOptional, IsPhoneNumber, IsString, IsUUID } from 'class-validator';
 import { ProfileDto } from './profile.dto';
 
 export class UserDto {
-  @Expose()
-  access_token: string;
-
-  @Expose()
+  @ApiProperty()
+  @IsUUID()
   id: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsString()
   username: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsString()
+  password: string;
+
+  @ApiProperty()
+  @IsString()
   firstName: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsString()
   lastName: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsEmail()
   email: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsPhoneNumber()
   phone: string;
 
-  @Expose()
+  @ApiProperty()
+  @IsString()
   bio: string;
 
-  @Expose()
-  @Type(() => ProfileDto)
+  @ApiProperty({ type: 'string', format: 'binary' })
+  @IsOptional()
   profile: ProfileDto[];
 }

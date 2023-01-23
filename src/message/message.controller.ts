@@ -13,6 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiTags } from '@nestjs/swagger';
 import { UUIDVersion } from 'class-validator';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 
@@ -23,6 +24,7 @@ import { MessageDto } from './dtos/message.dto';
 import { ViewMessagesDto } from './dtos/viewMessages.dto';
 import { MessageService } from './message.service';
 
+@ApiTags('message')
 @Controller('message')
 @Serialize(ViewMessagesDto)
 export class MessageController {

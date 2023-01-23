@@ -1,4 +1,3 @@
-import { UUIDVersion } from 'class-validator';
 import { User } from 'src/auth/entities/User.Entity';
 import {
   AfterInsert,
@@ -13,7 +12,7 @@ import {
 @Entity('friends')
 export class Friend {
   @PrimaryGeneratedColumn('uuid')
-  id: UUIDVersion;
+  id: string;
 
   @Column()
   adUsername: string;
@@ -22,10 +21,10 @@ export class Friend {
   acUsername: string;
 
   @ManyToOne(() => User, (user) => user.id, { eager: true })
-  addedBy: UUIDVersion;
+  addedBy: string;
 
   @ManyToOne(() => User, (user) => user.id, { eager: true })
-  acceptedBy: UUIDVersion;
+  acceptedBy: string;
 
   @AfterInsert()
   logInsert() {

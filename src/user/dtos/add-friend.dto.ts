@@ -1,9 +1,10 @@
-import { IsUUID, UUIDVersion } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { IsUUID } from "class-validator";
 
   export class AddFriendDto {
-  
+    @ApiProperty()
     @IsUUID()
-    requestedToId: UUIDVersion;
+    requestedToId: string;
     
   }
   

@@ -26,10 +26,10 @@ import { LoginUserDto } from './dtos/login-user.dto';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('/signup')
-  @UseInterceptors(FileInterceptor('profile'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateUserDto })
+  @Post('/signup')
+  @UseInterceptors(FileInterceptor('profile'))
   async signup(
     @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
@@ -39,19 +39,19 @@ export class AuthController {
     return this.authService.signup(fileValidationError, file, body);
   }
 
+  @ApiBody({ type: LoginUserDto })
   @UseGuards(LocalAuthGuard)
   @Post('/login')
-  @ApiBody({ type: LoginUserDto })
   async login(@Req() req: any) {
     return this.authService.login(req.user);
   }
 
   @ApiSecurity('bearer')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: UserDto})
   @UseGuards(JwtAuthGuard)
   @Patch('/update')
-  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('profile'))
-  @ApiBody({ type: UserDto})
   async update(
     @Req() req: any,
     @UploadedFile() file,

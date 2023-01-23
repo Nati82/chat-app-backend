@@ -43,11 +43,11 @@ export class UserService {
     });
   }
 
-  async getFriendRequests(requestedTo: UUIDVersion) {
+  async getFriendRequests(requestedTo: string) {
     return this.friendRequest.find({ where: { requestedTo } });
   }
 
-  async acceptRequest(id: UUIDVersion, userId: UUIDVersion) {
+  async acceptRequest(id: string, userId: string) {
     const request = await this.friendRequest.findOne({ id });
 
     if (request && userId === request.requestedTo.id) {
@@ -55,8 +55,8 @@ export class UserService {
       const friend: Partial<Friend> = {
         adUsername: request.addedBy.username,
         acUsername: request.requestedTo.username,
-        addedBy: request.addedBy.id as UUIDVersion,
-        acceptedBy: request.requestedTo.id as UUIDVersion,
+        addedBy: request.addedBy.id,
+        acceptedBy: request.requestedTo.id,
       };
       const newFriend = this.friend.create(friend);
       await this.friendRequest.delete(id);
@@ -67,7 +67,7 @@ export class UserService {
     });
   }
 
-  async denyRequest(id: UUIDVersion) {
+  async denyRequest(id: string) {
     const deniedRequest = await this.friendRequest.findOne(id);
     const { affected } = await this.friendRequest.delete(id);
 
@@ -78,7 +78,7 @@ export class UserService {
     });
   }
 
-  async searchFriends(username: string, id: UUIDVersion) {
+  async searchFriends(username: string, id: string) {
     return this.friend.find({
       where: [
         {

@@ -3,7 +3,7 @@ import { UserDto } from 'src/auth/dtos/user.dto';
 
 export class FriendReqDto {
   @Expose()
-  id: number;
+  id: string;
 
   @Expose()
   @Type(() => UserDto)

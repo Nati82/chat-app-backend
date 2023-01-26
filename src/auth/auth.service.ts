@@ -11,6 +11,7 @@ import { User } from './entities/User.Entity';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { isUUID, UUIDVersion } from 'class-validator';
 import * as fs from 'fs';
+import * as fsExtra from 'fs-extra';
 import { Profile } from './entities/Profile.Entity';
 
 @Injectable()
@@ -23,6 +24,14 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+
+  async removeFile(filename: string) {
+    return fs.promises.rm(filename, {
+      recursive: true,
+      force: true,
+    });
+  }
+  
   async signup(
     fileValidationError: string,
     file: Express.Multer.File,
@@ -31,12 +40,14 @@ export class AuthService {
     const userExists = await this.findOne(params.username);
 
     if (userExists) {
+      await this.removeFile(`./files/${params.username}/profile`);
       throw new BadRequestException({
         message: 'username already exists',
       });
     }
 
     if (fileValidationError && fileValidationError.length) {
+      await this.removeFile(`./files/${params.username}/profile`)
       throw new BadRequestException({
         message: fileValidationError,
       });
@@ -60,10 +71,7 @@ export class AuthService {
       const profile = await this.profile.save(newProfile);
 
       if (!profile) {
-        await fs.promises.rm(`./files/${params.username}/profile`, {
-          recursive: true,
-          force: true,
-        });
+        await this.removeFile(`./files/${params.username}/profile`);
       }
 
       const { id } = savedUser;
@@ -115,56 +123,87 @@ export class AuthService {
   }
 
   async update(
-    id: UUIDVersion,
-    fileValidationError: string,
-    file: Express.Multer.File,
+    id: string,
     params: Partial<User>,
   ) {
-    const user = await this.user
+    const { profile, ...newParams } = params;
+
+    const updatedUser = await this.user
       .createQueryBuilder('users')
       .leftJoinAndSelect('users.profile', 'profiles')
       .where('users.id = :id', { id })
       .getOne();
 
-    if (params.password) {
-      const saltOrRounds = 10;
-      const hash = await bcrypt.hash(params.password, saltOrRounds);
-      params.password = hash;
+    for (const key in updatedUser) {
+      if (!newParams[key] && newParams.hasOwnProperty(key))
+        newParams[key] = updatedUser[key];
     }
 
-    if (params.username) {
-      if (await this.user.findOne({ username: params.username })) {
+    if (newParams.username && newParams.username !== updatedUser.username) {
+      if (await this.user.findOne({ username: newParams.username })) {
         throw new BadRequestException({
           message: 'username already exists',
         });
       }
-    }
 
-    if (fileValidationError && fileValidationError.length) {
-      throw new BadRequestException({
-        message: fileValidationError,
-      });
+      try {
+        this.profile.manager.transaction(async (t) => {
+          for await (const prof of updatedUser.profile) {
+            let toBeUpdatedProf = prof.profile.split('/');
+            await this.profile
+              .createQueryBuilder()
+              .update(Profile)
+              .set({
+                profile: `./files/${newParams.username}/profile/${
+                  toBeUpdatedProf[toBeUpdatedProf.length - 1]
+                }`,
+              })
+              .where('Id = :id', { id: prof.id })
+              .execute();
+          }
+        });
+        await fsExtra.move(
+          `./files/${updatedUser.username}`,
+          `./files/${newParams.username}`,
+        );
+      } catch (e) {
+        throw new BadRequestException({ message: e });
+      }
     }
 
     const { affected } = await this.user
-      .createQueryBuilder('users')
-      .update()
+      .createQueryBuilder()
+      .update(User)
       .set({
-        ...params,
+        ...newParams,
       })
       .where('users.id = :id', { id })
       .execute();
 
-    if (affected === 0) {
-      await fs.promises.rm(
-        `./files/${user.username}/profile/${file.filename}`,
-        {
-          recursive: true,
-          force: true,
-        },
-      );
+    if (affected > 0) {
+      return this.login(updatedUser);
+    }
+
+    throw new BadRequestException({
+      message: 'update was unsuccessful',
+    });
+  }
+
+  async changeProfilePic(
+    id: string,
+    fileValidationError: string,
+    file: Express.Multer.File,
+  ) {
+    const updatedUser = await this.user
+      .createQueryBuilder('users')
+      .leftJoinAndSelect('users.profile', 'profiles')
+      .where('users.id = :id', { id })
+      .getOne();
+
+    if (fileValidationError && fileValidationError.length) {
+      await this.removeFile(`./files/${updatedUser.username}/profile`);
       throw new BadRequestException({
-        message: 'update was unsuccessful',
+        message: fileValidationError,
       });
     }
 
@@ -173,31 +212,84 @@ export class AuthService {
       date: new Date(),
     });
 
-    newProfile.user = user;
-    const profile = await this.profile.save(newProfile);
+    newProfile.user = updatedUser;
+    const profilePic = await this.profile.save(newProfile);
 
-    if (!profile) {
-      await fs.promises.rm(
-        `./files/${user.username}/profile/${file.filename}`,
-        {
-          recursive: true,
-          force: true,
-        },
-      );
+    if (!profilePic) {
+      await this.removeFile(`./files/${updatedUser.username}/profile`);
+
+      throw new BadRequestException({
+        message: 'update was unsuccessful',
+      });
     }
-
-    return this.login(user);
   }
 
-  async delete(id: UUIDVersion) {
+  async changePassword(id: string, newPassword: string) {
+    newPassword = await bcrypt.hash(newPassword, 10);
+
+    const { affected } = await this.user
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        password: newPassword,
+      })
+      .where('Id = :id', { id })
+      .execute();
+
+    if (affected !== 0) {
+      const updatedUser = await this.user
+        .createQueryBuilder('users')
+        .leftJoinAndSelect('users.profile', 'profiles')
+        .where('users.id = :id', { id })
+        .getOne();
+
+      return this.login(updatedUser);
+    }
+
+    throw new BadRequestException({ message: 'update unsuccessful' });
+  }
+
+  async deleteProfilePic(user: Partial<User>, filename: string) {
+    const { affected } = await this.profile
+      .createQueryBuilder('profiles')
+      .delete()
+      .from(Profile)
+      .where('profile = :profile', { profile: filename })
+      .andWhere('userId = :id', { id: user.id })
+      .execute();
+
+    if (affected !== 0) {
+      try {
+        await this.removeFile(filename);
+      } catch (e) {
+        throw new BadRequestException({
+          message: 'could not delete profile picture',
+        });
+      }
+      return { message: 'deleted profile pic successfully' };
+    }
+
+    throw new BadRequestException({
+      message: 'could not delete profile picture',
+    });
+  }
+
+  async delete(id: string) {
     const user = await this.user.findOne(id);
-    const res = await this.user.delete(id);
-    if (res.affected && res.affected > 0) {
-      await fs.promises.rm(`./files/${user.username}/profile`, {
-        recursive: true,
-        force: true,
-      });
-      return user;
+
+    const { affected } = await this.profile
+      .createQueryBuilder('profiles')
+      .delete()
+      .from(Profile)
+      .where('userId = :id', { id: user.id })
+      .execute();
+
+    if (affected > 0) {
+      const res = await this.user.delete(id);
+      if (res.affected && res.affected > 0) {
+        await this.removeFile(`./files/${user.username}`);
+        return user;
+      }
     }
 
     throw new NotFoundException({

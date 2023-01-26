@@ -1,11 +1,10 @@
-import { UUIDVersion } from 'class-validator';
 import { Entity, Column, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Message } from './Message.Entity';
 
 @Entity('files')
 export class File {
   @PrimaryGeneratedColumn('uuid')
-  id: UUIDVersion;
+  id: string;
 
   @Column()
   file: string;

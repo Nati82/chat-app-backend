@@ -14,55 +14,107 @@ import { UserService } from 'src/user/user.service';
 import { MessageDto } from './dtos/message.dto';
 import { Message } from './entities/Message.Entity';
 import { File } from './entities/File.Entity';
+import { FriendsWithMessage } from './entities/FriendsWithMessage.entity';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class MessageService {
   constructor(
+    @InjectRepository(FriendsWithMessage)
+    private friendsWithMess: Repository<FriendsWithMessage>,
     @InjectRepository(Message) private message: Repository<Message>,
     @InjectRepository(File) private file: Repository<File>,
     private userService: UserService,
+    private authService: AuthService,
   ) {}
+
+  async removeFiles(f) {
+    fs.promises.rm(`${f.destination}/${f.filename}`, {
+      force: true,
+      recursive: true,
+    });
+  }
+
+  async verifyFileAccess(messageId: string, userId: string) {
+    const message = await this.friendsWithMess
+      .createQueryBuilder('friends_with_messages')
+      .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
+      .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
+      .where('friends_with_messages.id = :messageId', { messageId })
+      .getOne();
+
+    if (message.addedBy.id != userId || message.acceptedBy.id != userId)
+      return false;
+      
+    return true;
+  }
+
+  async friendsWithMessage(sentBy: string, sentTo: string) {
+    return this.friendsWithMess.findOne({
+      where: [
+        {
+          acceptedBy: sentTo,
+          addedBy: sentBy,
+        },
+        {
+          acceptedBy: sentBy,
+          addedBy: sentTo,
+        },
+      ],
+    });
+  }
 
   async sendMessage(
     fileValidationError: string,
     user: Partial<User>,
     files: Array<Express.Multer.File>,
-    message: MessageDto,
+    newMessage: MessageDto,
   ) {
     const { id } = user;
-    const removeFiles = (f) => {
-      fs.promises.rm(`${f.destination}/${f.filename}`, {
-        force: true,
-        recursive: true,
-      });
-    };
 
     if (fileValidationError && fileValidationError.length) {
+      files.forEach((f) => this.removeFiles(f));
       throw new BadRequestException({
         message: fileValidationError,
       });
     }
 
-    const friend = await this.userService.friendsWithMessage(
-      id,
-      message.sentTo,
-    );
+    let friendWith = await this.friendsWithMessage(id, newMessage.sentTo);
 
-    if (!friend) {
-      throw new BadRequestException({
-        message: 'You can only send messages to your friends!',
-      });
+    if (!friendWith) {
+      const friend = await this.userService.isFriend(id, newMessage.sentTo);
+
+      if (!friend) {
+        files.forEach((f) => this.removeFiles(f));
+        throw new BadRequestException({
+          message: 'You can only send messages to your friends!',
+        });
+      }
+
+      const tempFriendWith = {
+        acceptedBy: await this.authService.findOne({
+          id: friend.acceptedBy['id'],
+        }),
+        addedBy: await this.authService.findOne({ id: friend.addedBy['id'] }),
+      };
+      const newFriendWith = this.friendsWithMess.create(tempFriendWith);
+      friendWith = await this.friendsWithMess.save(newFriendWith);
     }
 
-    message.sentBy = id;
-    message.date = new Date();
+    newMessage.sentBy = id;
+    newMessage.date = new Date();
+    const { message, date } = newMessage;
 
-    const newMessage = this.message.create(message);
+    const createdMessage = this.message.create({
+      message,
+      date,
+      friendsWithMess: friendWith,
+    });
 
-    const savedMessage = await this.message.save(newMessage);
+    const savedMessage = await this.message.save(createdMessage);
 
     if (!savedMessage) {
-      files.forEach(removeFiles);
+      files.forEach((f) => this.removeFiles(f));
       throw new BadRequestException({
         message: 'message not sent. please try again',
       });
@@ -79,7 +131,7 @@ export class MessageService {
     const savedFiles = await this.file.save(newFiles);
 
     if (!savedFiles) {
-      files.forEach(removeFiles);
+      files.forEach((f) => this.removeFiles(f));
     }
     return this.message
       .createQueryBuilder('messages')
@@ -89,33 +141,68 @@ export class MessageService {
   }
 
   async viewFriendsWithMessage(userId: UUIDVersion, page: number) {
-    return this.message
-      .createQueryBuilder('messages')
-      .distinctOn(['messages.sentBy', 'messages.sentTo'])
-      .leftJoinAndSelect('messages.sentBy', 'sentBy')
-      .leftJoinAndSelect('messages.sentTo', 'sentTo')
-      .leftJoinAndSelect('messages.files', 'files')
-      .where('sentBy.id = :userId', { userId })
-      .orWhere('sentTo.id = :userId', { userId })
+    const friendsWithMessages = [];
+    const count = await this.friendsWithMess
+      .createQueryBuilder('friends_with_messages')
+      .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
+      .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
+      .where('friends_with_messages.acceptedBy = :userId', { userId })
+      .orWhere('friends_with_messages.addedBy = :userId', { userId })
+      .getCount();
+
+    const pages = Math.floor(count / 50) + 1;
+    if (page > pages) page = pages;
+
+    const friendsWith = await this.friendsWithMess
+      .createQueryBuilder('friends_with_messages')
+      .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
+      .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
+      .where('friends_with_messages.acceptedBy = :userId', { userId })
+      .orWhere('friends_with_messages.addedBy = :userId', { userId })
       .take(50)
       .skip((page - 1) * 50)
       .getMany();
+
+    for await (const f of friendsWith) {
+      const mess = await this.message
+        .createQueryBuilder('messages')
+        .leftJoinAndSelect('messages.files', 'files')
+        .leftJoinAndSelect('messages.friendsWithMess', 'friendsWithMess')
+        .where('messages.friendsWithMess = :friendId', { friendId: f.id })
+        .orderBy('messages.date', 'DESC')
+        .getOne();
+      friendsWithMessages.push({ ...f, lastMessage: { ...mess } });
+    }
+
+    return { friendsWithMessages, page, pages };
   }
 
-  async viewMessages(userId: string, friendId: string, page: number) {
-    /* 
-      This method needs to be fixed
-     */
-
-    return this.message
+  async viewMessages(friendWithMessId: string, page: number) {
+    const count = await this.message
       .createQueryBuilder('messages')
       .leftJoinAndSelect('messages.files', 'files')
-      .where('messages.sentBy.id = :userId', { userId })
-      .andWhere('messages.sentTo.id = :friendId', { friendId })
+      .leftJoinAndSelect('messages.friendsWithMess', 'friendsWithMess')
+      .where('messages.friendsWithMess = :friendWithMessId', {
+        friendWithMessId,
+      })
+      .getCount();
+
+    const pages = Math.floor(count / 50) + 1;
+    if (page > pages) page = pages;
+
+    const messages = await this.message
+      .createQueryBuilder('messages')
+      .leftJoinAndSelect('messages.files', 'files')
+      .leftJoinAndSelect('messages.friendsWithMess', 'friendsWithMess')
+      .where('messages.friendsWithMess = :friendWithMessId', {
+        friendWithMessId,
+      })
       .orderBy('messages.date', 'DESC')
       .take(50)
       .skip((page - 1) * 50)
       .getMany();
+
+    return { messages, page, pages };
   }
 
   async editMessage(messageId: string, message: string) {

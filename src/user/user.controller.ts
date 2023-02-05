@@ -3,12 +3,21 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
   Post,
   Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UserDto } from 'src/auth/dtos/user.dto';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -24,7 +33,7 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   @ApiOkResponse({ type: [UserDto] })
-  @ApiQuery({ name: 'username', type: 'string'})
+  @ApiQuery({ name: 'username', type: 'string' })
   @UseGuards(JwtAuthGuard)
   @Get('searchUser')
   @Serialize(UserDto)
@@ -51,24 +60,20 @@ export class UserController {
     return this.userService.getFriendRequests(requestedTo);
   }
 
-  @ApiOkResponse({ type: FriendDto })  
-  @ApiBody({ type: FriendReqDto })
+  @ApiOkResponse({ type: FriendDto })
   @UseGuards(JwtAuthGuard)
-  @Post('acceptRequest')
+  @Post('acceptRequest/:requestId')
   @Serialize(FriendDto)
-  async acceptRequest(@Req() req: any, @Body() request: FriendReqDto) {
+  async acceptRequest(@Req() req: any, @Param('requestId') requestId: string) {
     const userId = req.user.id;
-    const requestId  = request.id;
     return this.userService.acceptRequest(requestId, userId);
   }
 
   @ApiOkResponse({ type: FriendReqDto })
-  @ApiBody({ type: FriendReqDto })
   @UseGuards(JwtAuthGuard)
-  @Delete('denyRequest')
+  @Delete('denyRequest/:requestId')
   @Serialize(FriendReqDto)
-  async denyRequest(@Body() request: FriendReqDto) {
-    const requestId = request.id;
+  async denyRequest(@Param('requestId') requestId: string) {
     return this.userService.denyRequest(requestId);
   }
 

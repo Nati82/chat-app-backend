@@ -24,14 +24,13 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-
   async removeFile(filename: string) {
     return fs.promises.rm(filename, {
       recursive: true,
       force: true,
     });
   }
-  
+
   async signup(
     fileValidationError: string,
     file: Express.Multer.File,
@@ -47,7 +46,7 @@ export class AuthService {
     }
 
     if (fileValidationError && fileValidationError.length) {
-      await this.removeFile(`./files/${params.username}/profile`)
+      await this.removeFile(`./files/${params.username}/profile`);
       throw new BadRequestException({
         message: fileValidationError,
       });
@@ -89,6 +88,14 @@ export class AuthService {
     });
   }
 
+  async getProfilePics(userId: string) {
+    return this.profile.find({
+      where: {
+        user: userId
+      }
+    })
+  }
+
   async findOne(username: any) {
     if (username.id && isUUID(username.id)) {
       const id = username.id as UUIDVersion;
@@ -101,7 +108,7 @@ export class AuthService {
     return this.user
       .createQueryBuilder('users')
       .leftJoinAndSelect('users.profile', 'profiles')
-      .where('users.username = :username', { username })
+      .where('username = :username', { username })
       .getOne();
   }
 
@@ -122,12 +129,9 @@ export class AuthService {
     };
   }
 
-  async update(
-    id: string,
-    params: Partial<User>,
-  ) {
+  async update(id: string, params: Partial<User>) {
     const { profile, ...newParams } = params;
-
+    
     const updatedUser = await this.user
       .createQueryBuilder('users')
       .leftJoinAndSelect('users.profile', 'profiles')
@@ -150,16 +154,18 @@ export class AuthService {
         this.profile.manager.transaction(async (t) => {
           for await (const prof of updatedUser.profile) {
             let toBeUpdatedProf = prof.profile.split('/');
-            await this.profile
-              .createQueryBuilder()
-              .update(Profile)
-              .set({
-                profile: `./files/${newParams.username}/profile/${
-                  toBeUpdatedProf[toBeUpdatedProf.length - 1]
-                }`,
-              })
-              .where('Id = :id', { id: prof.id })
-              .execute();
+              await this.profile
+                .createQueryBuilder()
+                .update(Profile)
+                .set({
+                  profile: `./files/${newParams.username}/${
+                    toBeUpdatedProf[toBeUpdatedProf.length - 2]}/${
+                    toBeUpdatedProf[toBeUpdatedProf.length - 1]
+                  }`,
+                })
+                .where('Id = :id', { id: prof.id })
+                .execute();
+
           }
         });
         await fsExtra.move(
@@ -179,9 +185,10 @@ export class AuthService {
       })
       .where('users.id = :id', { id })
       .execute();
-
+      
     if (affected > 0) {
-      return this.login(updatedUser);
+      const newUser = await this.findOne(newParams.username);
+      return this.login(newUser);
     }
 
     throw new BadRequestException({
@@ -222,6 +229,12 @@ export class AuthService {
         message: 'update was unsuccessful',
       });
     }
+
+    return this.profile
+      .createQueryBuilder('profiles')
+      .leftJoinAndSelect('profiles.user', 'users')
+      .where('profiles.userId = :id', { id })
+      .getMany();
   }
 
   async changePassword(id: string, newPassword: string) {

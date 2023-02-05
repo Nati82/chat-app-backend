@@ -11,6 +11,7 @@ import { MessageModule } from './message/message.module';
 import { Message } from './message/entities/Message.Entity';
 import { Profile } from './auth/entities/Profile.Entity';
 import { File } from './message/entities/File.Entity';
+import { FriendsWithMessage } from './message/entities/FriendsWithMessage.entity';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { File } from './message/entities/File.Entity';
       username: 'Chat-App',
       password: 'chatapp',
       database: 'chat-app',
-      entities: [User, Friend, FriendRequest, Message, Profile, File],
+      entities: [User, Friend, FriendRequest, Message, Profile, File, FriendsWithMessage],
       synchronize: true,
     }),
     AuthModule,

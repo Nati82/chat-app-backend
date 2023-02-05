@@ -10,19 +10,21 @@ import { MessageController } from './message.controller';
 import { MessageService } from './message.service';
 import { UserModule } from 'src/user/user.module';
 import { File } from './entities/File.Entity';
+import { FriendsWithMessage } from './entities/FriendsWithMessage.entity';
+import { MessageGateway } from './message.gateway';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Message, File]),
+    TypeOrmModule.forFeature([Message, File, FriendsWithMessage]),
     MulterModule.register({
       storage: diskStorage({
         destination: async function (req, _file, cb) {
-          const user = req.user['username'];
+          const username = req.user['username'];
           const date = new Date().toISOString().split('T')[0];
-          await fs.promises.mkdir(`./files/${user}/${date}`, {
+          await fs.promises.mkdir(`./files/${username}/${date}`, {
             recursive: true,
           });
-          cb(null, `./files/${user}/${date}`);
+          cb(null, `./files/${username}/${date}`);
         },
         filename: (_req, file, cb) => {
           cb(null, file.originalname);
@@ -42,6 +44,6 @@ import { File } from './entities/File.Entity';
     UserModule,
   ],
   controllers: [MessageController],
-  providers: [MessageService],
+  providers: [MessageService, MessageGateway],
 })
 export class MessageModule {}

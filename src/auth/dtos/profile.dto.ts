@@ -1,4 +1,5 @@
-import { Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
+import { User } from '../entities/User.Entity';
 
 export class ProfileDto {
   @Expose()
@@ -9,4 +10,8 @@ export class ProfileDto {
 
   @Expose()
   date: Date;
+
+  @Expose()
+  @Type(() => User)
+  userId: string
 }

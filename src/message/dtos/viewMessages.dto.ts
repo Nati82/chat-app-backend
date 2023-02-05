@@ -1,26 +1,14 @@
 import { Expose, Type } from 'class-transformer';
-import { UserDto } from 'src/auth/dtos/user.dto';
-import { FileDto } from './file.dto';
+import { ViewMessageDto } from './viewMessage.dto';
 
 export class ViewMessagesDto {
   @Expose()
-  id: string;
+  @Type(() => ViewMessageDto)
+  messages: ViewMessageDto[];
 
   @Expose()
-  message: string;
+  page: number;
 
   @Expose()
-  @Type(() => FileDto)
-  files: FileDto[];
-
-  @Expose()
-  date: Date;
-
-  @Expose()
-  @Type(() => UserDto)
-  sentTo: UserDto;
-
-  @Expose()
-  @Type(() => UserDto)
-  sentBy: UserDto;
+  pages: number;
 }

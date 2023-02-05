@@ -4,38 +4,50 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Req,
+  Res,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOkResponse, ApiParam, ApiTags } from '@nestjs/swagger';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
+
+import * as fs from 'fs';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeleteMessageDto } from './dtos/deleteMessages.dto';
 import { EditMessageDto } from './dtos/editMessage.dto';
+import { ListFriendsWithMessDto } from './dtos/listFrWithMess.dto';
 import { MessageDto } from './dtos/message.dto';
+import { ViewMessageDto } from './dtos/viewMessage.dto';
 import { ViewMessagesDto } from './dtos/viewMessages.dto';
 import { MessageService } from './message.service';
 
 @ApiTags('message')
 @ApiBearerAuth()
 @Controller('message')
-@Serialize(ViewMessagesDto)
 export class MessageController {
   constructor(private messageService: MessageService) {}
 
+  @ApiOkResponse({ type: ViewMessageDto })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: MessageDto })
-  @ApiOkResponse({ type: ViewMessagesDto })
   @UseGuards(JwtAuthGuard)
   @Post('sendMessage')
-  @UseInterceptors(FilesInterceptor('files'))
+  @UseInterceptors(AnyFilesInterceptor())
   async sendMessage(
     @Req() req: any,
     @UploadedFiles() files: Array<Express.Multer.File>,
@@ -50,10 +62,11 @@ export class MessageController {
     );
   }
 
-  @ApiParam({name: 'page', type: 'number'})
-  @ApiOkResponse({ type: [ViewMessagesDto] })
+  @ApiOkResponse({ type: ListFriendsWithMessDto })
+  @ApiParam({ name: 'page', type: 'number' })
   @UseGuards(JwtAuthGuard)
   @Get('viewFriendsWithMessage/:page')
+  @Serialize(ListFriendsWithMessDto)
   async viewFriendsWithMessage(@Req() req: any, @Param('page') page: number) {
     const { id } = req.user;
 
@@ -66,33 +79,61 @@ export class MessageController {
     return this.messageService.viewFriendsWithMessage(id, page);
   }
 
-  @ApiParam({name: 'page', type: 'number'})
-  @ApiParam({name: 'friendId'})
-  @ApiOkResponse({ type: [ViewMessagesDto] })
+  @Header('Content-Type', 'image/jpeg')
   @UseGuards(JwtAuthGuard)
-  @Get('viewMessages/:page/:friendId')
-  async viewMessages(
+  @Get('/:messageId/:messageFile')
+  async getImages(
+    @Param('messageId') messageId: string,
+    @Param('messageFile') messageFile: string,
     @Req() req: any,
-    @Param('page') page: number,
-    @Param('friendId') friendId: string,
+    @Res() res: any,
   ) {
+    const fPath = messageFile.slice(1, messageFile.length);
     const { id } = req.user;
-    return this.messageService.viewMessages(id, friendId, page);
+
+    if (!(await this.messageService.verifyFileAccess(messageId, id))) {
+      throw new BadRequestException({ message: 'not allowed' });
+    }
+    const file = fs.createReadStream(`${process.cwd()}${fPath}`);
+    file.pipe(res);
+
+    file.on('error', (e) => {
+      res.format({
+        'application/json'() {
+          res.status(400).json({ message: e.message });
+        },
+      });
+    });
   }
 
+  @ApiOkResponse({ type: [ViewMessagesDto] })
+  @ApiParam({ name: 'page', type: 'number' })
+  @ApiParam({ name: 'friendId' })
+  @UseGuards(JwtAuthGuard)
+  @Get('viewMessages/:page/:friendWithMessId')
+  @Serialize(ViewMessagesDto)
+  async viewMessages(
+    @Param('page') page: number,
+    @Param('friendWithMessId') friendWithMessId: string,
+  ) {
+    return this.messageService.viewMessages(friendWithMessId, page);
+  }
+
+  @ApiOkResponse({ type: ViewMessageDto })
   @ApiBody({ type: EditMessageDto })
-  @ApiOkResponse({ type: ViewMessagesDto })
   @UseGuards(JwtAuthGuard)
   @Patch('editMessage')
+  @Serialize(ViewMessageDto)
   async editMessage(@Body() body: EditMessageDto) {
     const { messageId, message } = body;
     return this.messageService.editMessage(messageId, message);
   }
 
+  @ApiOkResponse({ type: [ViewMessageDto] })
   @ApiBody({ type: DeleteMessageDto })
-  @ApiOkResponse({ type: [ViewMessagesDto] })
   @UseGuards(JwtAuthGuard)
   @Delete('deleteMessages')
+  @Serialize(ViewMessageDto)
   async deleteMessage(@Req() req: any, @Body() body: DeleteMessageDto) {
     const { username } = req.user;
     const { messages } = body;

@@ -5,6 +5,5 @@ import { IsUUID } from "class-validator";
     @ApiProperty()
     @IsUUID()
     requestedToId: string;
-    
   }
   

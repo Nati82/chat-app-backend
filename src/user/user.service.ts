@@ -25,6 +25,20 @@ export class UserService {
   }
 
   async addFriend(id: UUIDVersion, friend: AddFriendDto) {
+    const friendRequestExists = await this.friendRequest
+      .createQueryBuilder('friend_requests')
+      .leftJoinAndSelect('friend_requests.addedBy', 'userRequested')
+      .leftJoinAndSelect('friend_requests.requestedTo', 'userAdded')
+      .where('friend_requests.addedBy = :addedBy', { addedBy: id })
+      .andWhere('friend_requests.requestedTo = :requestedTo', {
+        requestedTo: friend.requestedToId,
+      })
+      .getOne();
+
+    if (friendRequestExists) {
+      return friendRequestExists;
+    }
+
     const addedById = await this.authService.findOne({ id });
     const requestedToId = await this.authService.findOne({
       id: friend.requestedToId,
@@ -49,7 +63,7 @@ export class UserService {
 
   async acceptRequest(id: string, userId: string) {
     const request = await this.friendRequest.findOne({ id });
-
+console.log(id);
     if (request && userId === request.requestedTo.id) {
       //fix later with transaction
       const friend: Partial<Friend> = {
@@ -114,7 +128,7 @@ export class UserService {
     });
   }
 
-  async friendsWithMessage(sentBy: string, sentTo: string) {
+  async isFriend(sentBy: string, sentTo: string) {
     return this.friend.findOne({
       where: [
         {

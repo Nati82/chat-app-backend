@@ -32,8 +32,4 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   bio: string;
-
-  @ApiProperty({ type: 'string', format: 'binary', required: false })
-  @IsOptional()
-  profile: ProfileDto[];
 }

@@ -2,9 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class MessageDto {
-  @ApiProperty({ type: 'string', format: 'binary'})
+  @ApiProperty({ type: ['string'], format: 'binary', required: false })
   @IsOptional()
-  file: string;
+  file: string[];
 
   @ApiProperty()
   @IsString()
@@ -18,7 +18,7 @@ export class MessageDto {
   @IsOptional()
   sentBy: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false, default: new Date() })
   @IsOptional()
   date: Date;
 }

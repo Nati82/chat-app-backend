@@ -1,4 +1,3 @@
-import { User } from 'src/auth/entities/User.Entity';
 import {
   Entity,
   Column,
@@ -7,6 +6,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { File } from './File.Entity';
+import { FriendsWithMessage } from './FriendsWithMessage.entity';
 
 @Entity('messages')
 export class Message {
@@ -19,12 +19,9 @@ export class Message {
   @OneToMany(() => File, (file) => file.message)
   files: File[];
 
-  @Column('date')
+  @Column('timestamp')
   date: Date;
 
-  @ManyToOne(() => User, (user) => user.id, { eager: true })
-  sentTo: string;
-
-  @ManyToOne(() => User, (user) => user.id, { eager: true })
-  sentBy: string;
+  @ManyToOne(() => FriendsWithMessage, (fwm) => fwm.id, { eager: true })
+  friendsWithMess: FriendsWithMessage;
 }

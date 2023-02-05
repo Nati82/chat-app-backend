@@ -35,7 +35,7 @@ export class User {
   @Column()
   bio: string;
 
-  @OneToMany(() => Profile, (profile) => profile.user)
+  @OneToMany(() => Profile, (profile) => profile.user, { eager: true })
   profile: Profile[];
 
   @AfterInsert()

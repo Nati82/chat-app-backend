@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -18,19 +19,29 @@ import { User } from './entities/User.Entity';
 import { Serialize } from 'src/interceptors/serialize.interceptor';
 import { UserDto } from './dtos/user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOkResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOkResponse,
+  ApiSecurity,
+  ApiTags,
+} from '@nestjs/swagger';
+import * as fs from 'fs';
 import { LoginUserDto } from './dtos/login-user.dto';
 import { UpdateUserDto } from './dtos/updateUser.dto';
 import { ChangePasswordDto } from './dtos/changePassword.dto';
 import { ResponseMessage } from 'src/common/dtos/responseMessage.dto';
+import { ProfilePicDto } from './dtos/profilePic.dto';
+import { ProfileDto } from './dtos/profile.dto';
+import { Get, Header, Res } from '@nestjs/common/decorators';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ type: UserDto })
+  @ApiConsumes('multipart/form-data')
   @ApiBody({ type: CreateUserDto })
   @Post('/signup')
   @Serialize(UserDto)
@@ -44,6 +55,37 @@ export class AuthController {
     return this.authService.signup(fileValidationError, file, body);
   }
 
+  @ApiOkResponse({ type: [ProfileDto] })
+  @UseGuards(LocalAuthGuard)
+  @Get('/getProfilePics/:userId')
+  @Serialize(ProfileDto)
+  async getProfilePics(@Param('userId') userId: string) {
+    return this.authService.getProfilePics(userId);
+  }
+  
+  @ApiSecurity('bearer')
+  @Header('Content-Type', 'image/jpeg')
+  @UseGuards(JwtAuthGuard)
+  @Get('/:profilePics')
+  async getImages(@Param('profilePics') profilePics: string, @Res() res: any) {
+    const fPath = profilePics.slice(1, profilePics.length);
+    const fpathArray = fPath.split('/');
+
+    if (fpathArray[1] != 'files' && fpathArray[3] != 'profile') {
+      throw new BadRequestException({ message: 'not allowed' });
+    }
+    const file = fs.createReadStream(`${process.cwd()}${fPath}`);
+    file.pipe(res);
+
+    file.on('error', (e) => {
+      res.format({
+        'application/json'() {
+          res.status(400).json({ message: e.message });
+        },
+      });
+    });
+  }
+
   @ApiOkResponse({ type: UserDto })
   @ApiBody({ type: LoginUserDto })
   @UseGuards(LocalAuthGuard)
@@ -55,31 +97,24 @@ export class AuthController {
 
   @ApiSecurity('bearer')
   @ApiOkResponse({ type: UserDto })
-  @ApiBody({ type: UpdateUserDto})
+  @ApiBody({ type: UpdateUserDto })
   @UseGuards(JwtAuthGuard)
   @Patch('/update')
   @Serialize(UserDto)
-  async update(
-    @Req() req: any,
-    @Body() params: Partial<User>,
-  ) {
+  async update(@Req() req: any, @Body() params: Partial<User>) {
     const { id } = req.user;
     return this.authService.update(id, params);
   }
 
   @ApiSecurity('bearer')
-  @ApiOkResponse({ type: UserDto })
+  @ApiOkResponse({ type: [ProfileDto] })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ type: UpdateUserDto})
+  @ApiBody({ type: ProfilePicDto })
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('profile'))
   @Patch('/changeProfilePic')
-  @Serialize(UserDto)
-  async changeProfilePic(
-    @Req() req: any,
-    @UploadedFile() file,
-    @Body() params: Partial<User>,
-  ) {
+  @Serialize(ProfileDto)
+  async changeProfilePic(@Req() req: any, @UploadedFile() file) {
     const { id } = req.user;
     const { fileValidationError } = req;
     return this.authService.changeProfilePic(id, fileValidationError, file);
@@ -93,7 +128,7 @@ export class AuthController {
   async changePassword(@Req() req: any, @Body() password: ChangePasswordDto) {
     const { id } = req.user;
     const { newPassword } = password;
-    return this.authService.changePassword(id, newPassword)
+    return this.authService.changePassword(id, newPassword);
   }
 
   @ApiSecurity('bearer')
@@ -103,9 +138,7 @@ export class AuthController {
   @Serialize(ResponseMessage)
   async deleteProfilePic(@Req() req: any, @Param('filename') filename: string) {
     const { user } = req;
-    const message = await this.authService.deleteProfilePic(user, filename);
-    console.log(`message: ${message.message}`);
-    return message;
+    return this.authService.deleteProfilePic(user, filename);
   }
 
   @ApiSecurity('bearer')

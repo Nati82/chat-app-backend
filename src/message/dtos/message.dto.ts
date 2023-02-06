@@ -14,7 +14,7 @@ export class MessageDto {
   @IsUUID()
   sentTo: string;
 
-  @ApiProperty({required: false})
+  @ApiProperty({ required: false, default: "" })
   @IsOptional()
   sentBy: string;
 

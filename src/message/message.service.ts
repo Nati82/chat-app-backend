@@ -45,7 +45,7 @@ export class MessageService {
 
     if (message.addedBy.id != userId || message.acceptedBy.id != userId)
       return false;
-      
+
     return true;
   }
 
@@ -103,10 +103,12 @@ export class MessageService {
 
     newMessage.sentBy = id;
     newMessage.date = new Date();
-    const { message, date } = newMessage;
+    const { message, date, sentBy, sentTo } = newMessage;
 
     const createdMessage = this.message.create({
       message,
+      sentBy,
+      sentTo,
       date,
       friendsWithMess: friendWith,
     });
@@ -144,8 +146,6 @@ export class MessageService {
     const friendsWithMessages = [];
     const count = await this.friendsWithMess
       .createQueryBuilder('friends_with_messages')
-      .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
-      .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
       .where('friends_with_messages.acceptedBy = :userId', { userId })
       .orWhere('friends_with_messages.addedBy = :userId', { userId })
       .getCount();
@@ -163,7 +163,7 @@ export class MessageService {
       ],
       take: 50,
       skip: (page - 1) * 50,
-    })
+    });
 
     for await (const f of friendsWith) {
       const mess = await this.message
@@ -176,6 +176,8 @@ export class MessageService {
       friendsWithMessages.push({ ...f, lastMessage: { ...mess } });
     }
 
+    friendsWithMessages.sort((a, b) => b.lastMessage.date - a.lastMessage.date)
+    
     return { friendsWithMessages, page, pages };
   }
 
@@ -232,13 +234,16 @@ export class MessageService {
 
   async deleteMessage(_username: string, messageId: string[]) {
     const messages = await this.message.find({ id: In(messageId) });
+    
     messages.forEach((m) => {
-      m.files.forEach(async (f) => {
-        await fs.promises.rm(`./files/${f}`, {
-          recursive: true,
-          force: true,
+      if (m && m.files) {
+        m.files.forEach(async (f) => {
+          await fs.promises.rm(`./files/${f}`, {
+            recursive: true,
+            force: true,
+          });
         });
-      });
+      }
     });
     const { affected } = await this.message.delete({ id: In(messageId) });
 

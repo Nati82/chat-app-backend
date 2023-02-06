@@ -68,10 +68,13 @@ export class MessageController {
   @UseGuards(JwtAuthGuard)
   @Get('viewFriendsWithMessage/:page')
   @Serialize(ListFriendsWithMessDto)
-  async viewFriendsWithMessage(@Req() req: any, @Param('page') page: number) {
+  async viewFriendsWithMessage(
+    @Req() req: any,
+    @Param('page') page: number = 1,
+  ) {
     const { id } = req.user;
 
-    if(!page) page = 1;
+    if (!page || !parseInt(page.toString())) page = 1;
 
     return this.messageService.viewFriendsWithMessage(id, page);
   }
@@ -110,10 +113,10 @@ export class MessageController {
   @Get('viewMessages/:page/:friendWithMessId')
   @Serialize(ViewMessagesDto)
   async viewMessages(
-    @Param('page') page: number,
     @Param('friendWithMessId') friendWithMessId: string,
+    @Param('page') page: number = 1,
   ) {
-    if(!page) page = 1;
+    if (!page || !parseInt(page.toString())) page = 1;
     return this.messageService.viewMessages(friendWithMessId, page);
   }
 

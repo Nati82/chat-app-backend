@@ -184,8 +184,6 @@ export class MessageService {
   async viewMessages(friendWithMessId: string, page: number) {
     const count = await this.message
       .createQueryBuilder('messages')
-      .leftJoinAndSelect('messages.files', 'files')
-      .leftJoinAndSelect('messages.friendsWithMess', 'friendsWithMess')
       .where('messages.friendsWithMess = :friendWithMessId', {
         friendWithMessId,
       })

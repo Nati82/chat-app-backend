@@ -62,7 +62,7 @@ export class AuthController {
   async getProfilePics(@Param('userId') userId: string) {
     return this.authService.getProfilePics(userId);
   }
-  
+
   @ApiSecurity('bearer')
   @Header('Content-Type', 'image/jpeg')
   @UseGuards(JwtAuthGuard)

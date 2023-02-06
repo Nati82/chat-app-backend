@@ -152,16 +152,18 @@ export class MessageService {
 
     const pages = Math.floor(count / 50) + 1;
     if (page > pages) page = pages;
-
-    const friendsWith = await this.friendsWithMess
-      .createQueryBuilder('friends_with_messages')
-      .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
-      .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
-      .where('friends_with_messages.acceptedBy = :userId', { userId })
-      .orWhere('friends_with_messages.addedBy = :userId', { userId })
-      .take(50)
-      .skip((page - 1) * 50)
-      .getMany();
+    const friendsWith = await this.friendsWithMess.find({
+      where: [
+        {
+          acceptedBy: userId,
+        },
+        {
+          addedBy: userId,
+        },
+      ],
+      take: 50,
+      skip: (page - 1) * 50,
+    })
 
     for await (const f of friendsWith) {
       const mess = await this.message

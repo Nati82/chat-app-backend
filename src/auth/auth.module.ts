@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { Profile } from './entities/Profile.Entity';
+import { JwtSocketStrategy } from './strategies/jwt-socket.strategy';
 
 @Module({
   imports: [
@@ -48,7 +49,7 @@ import { Profile } from './entities/Profile.Entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, JwtAuthService, LocalStrategy, JwtStrategy, JwtSocketStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

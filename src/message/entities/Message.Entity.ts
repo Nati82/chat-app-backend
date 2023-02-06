@@ -16,6 +16,12 @@ export class Message {
   @Column()
   message: string;
 
+  @Column({ default: null })
+  sentTo: string;
+
+  @Column({ default: null })
+  sentBy: string;
+
   @OneToMany(() => File, (file) => file.message)
   files: File[];
 

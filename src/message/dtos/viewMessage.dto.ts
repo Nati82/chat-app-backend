@@ -9,6 +9,12 @@ export class ViewMessageDto {
   message: string;
 
   @Expose()
+  sentTo: string;
+
+  @Expose()
+  sentBy: string;
+  
+  @Expose()
   @Type(() => FileDto)
   files: FileDto[];
 

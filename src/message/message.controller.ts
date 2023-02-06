@@ -10,6 +10,7 @@ import {
   Post,
   Req,
   Res,
+  StreamableFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -70,19 +71,15 @@ export class MessageController {
   async viewFriendsWithMessage(@Req() req: any, @Param('page') page: number) {
     const { id } = req.user;
 
-    if (isNaN(page)) {
-      throw new BadRequestException({
-        message: 'page must be a number!',
-      });
-    }
+    if(!page) page = 1;
 
     return this.messageService.viewFriendsWithMessage(id, page);
   }
 
-  @Header('Content-Type', 'image/jpeg')
+  @Header('Content-Type', 'application/octet-stream')
   @UseGuards(JwtAuthGuard)
   @Get('/:messageId/:messageFile')
-  async getImages(
+  async getMessageFile(
     @Param('messageId') messageId: string,
     @Param('messageFile') messageFile: string,
     @Req() req: any,
@@ -116,6 +113,7 @@ export class MessageController {
     @Param('page') page: number,
     @Param('friendWithMessId') friendWithMessId: string,
   ) {
+    if(!page) page = 1;
     return this.messageService.viewMessages(friendWithMessId, page);
   }
 

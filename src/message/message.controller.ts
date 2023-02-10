@@ -4,13 +4,11 @@ import {
   Controller,
   Delete,
   Get,
-  Header,
   Param,
   Patch,
   Post,
   Req,
   Res,
-  StreamableFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -79,19 +77,19 @@ export class MessageController {
     return this.messageService.viewFriendsWithMessage(id, page);
   }
 
-  @Header('Content-Type', 'application/octet-stream')
   @UseGuards(JwtAuthGuard)
-  @Get('/:messageId/:messageFile')
+  @Get('/:friendWithMessageId/:messageFile')
   async getMessageFile(
-    @Param('messageId') messageId: string,
+    @Param('friendWithMessageId') friendWithMessageId: string,
     @Param('messageFile') messageFile: string,
     @Req() req: any,
     @Res() res: any,
   ) {
     const fPath = messageFile.slice(1, messageFile.length);
     const { id } = req.user;
-
-    if (!(await this.messageService.verifyFileAccess(messageId, id))) {
+    const allowed = await this.messageService.verifyFileAccess(friendWithMessageId, id);
+    console.log('allowed', allowed);
+    if (!allowed) {
       throw new BadRequestException({ message: 'not allowed' });
     }
     const file = fs.createReadStream(`${process.cwd()}${fPath}`);

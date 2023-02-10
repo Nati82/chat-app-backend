@@ -12,7 +12,7 @@ import {
       // for example, call super.logIn(request) to establish a session.
       context.switchToWs();
       const auth = context.getArgs()[0].handshake.auth;
-    context.getArgs()[0].authorization = auth.authorization;
+      console.log('authorization: ', auth)
     
       return super.canActivate(context);
     }

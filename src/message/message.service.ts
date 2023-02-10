@@ -36,17 +36,23 @@ export class MessageService {
   }
 
   async verifyFileAccess(messageId: string, userId: string) {
+    console.log('messageId', messageId);
+    console.log('userId', userId);
     const message = await this.friendsWithMess
       .createQueryBuilder('friends_with_messages')
       .leftJoinAndSelect('friends_with_messages.addedBy', 'addedBy')
       .leftJoinAndSelect('friends_with_messages.acceptedBy', 'acceptedBy')
       .where('friends_with_messages.id = :messageId', { messageId })
       .getOne();
+    for (const key in message) console.log(`message[${key}]: ${message[key]}`);
+    console.log('!message', message.acceptedBy.id, message.addedBy.id);
+    if (
+      message &&
+      (message.addedBy.id === userId || message.acceptedBy.id === userId)
+    )
+      return true;
 
-    if (message.addedBy.id != userId || message.acceptedBy.id != userId)
-      return false;
-
-    return true;
+    return false;
   }
 
   async friendsWithMessage(sentBy: string, sentTo: string) {
@@ -173,11 +179,12 @@ export class MessageService {
         .where('messages.friendsWithMess = :friendId', { friendId: f.id })
         .orderBy('messages.date', 'DESC')
         .getOne();
+        
       friendsWithMessages.push({ ...f, lastMessage: { ...mess } });
     }
 
-    friendsWithMessages.sort((a, b) => b.lastMessage.date - a.lastMessage.date)
-    
+    friendsWithMessages.sort((a, b) => b.lastMessage.date - a.lastMessage.date);
+
     return { friendsWithMessages, page, pages };
   }
 
@@ -232,7 +239,7 @@ export class MessageService {
 
   async deleteMessage(_username: string, messageId: string[]) {
     const messages = await this.message.find({ id: In(messageId) });
-    
+
     messages.forEach((m) => {
       if (m && m.files) {
         m.files.forEach(async (f) => {

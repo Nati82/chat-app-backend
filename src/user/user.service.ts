@@ -63,7 +63,7 @@ export class UserService {
 
   async acceptRequest(id: string, userId: string) {
     const request = await this.friendRequest.findOne({ id });
-console.log(id);
+    
     if (request && userId === request.requestedTo.id) {
       //fix later with transaction
       const friend: Partial<Friend> = {

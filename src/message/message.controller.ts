@@ -123,9 +123,10 @@ export class MessageController {
   @UseGuards(JwtAuthGuard)
   @Patch('editMessage')
   @Serialize(ViewMessageDto)
-  async editMessage(@Body() body: EditMessageDto) {
+  async editMessage(@Req() req: any, @Body() body: EditMessageDto) {
+    const { id } = req.user;
     const { messageId, message } = body;
-    return this.messageService.editMessage(messageId, message);
+    return this.messageService.editMessage(id, messageId, message);
   }
 
   @ApiOkResponse({ type: [ViewMessageDto] })
@@ -134,8 +135,8 @@ export class MessageController {
   @Delete('deleteMessages')
   @Serialize(ViewMessageDto)
   async deleteMessage(@Req() req: any, @Body() body: DeleteMessageDto) {
-    const { username } = req.user;
+    const { id } = req.user;
     const { messages } = body;
-    return this.messageService.deleteMessage(username, messages);
+    return this.messageService.deleteMessage(id, messages);
   }
 }

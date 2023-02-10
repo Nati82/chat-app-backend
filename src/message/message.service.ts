@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DeleteResult, In, Repository } from 'typeorm';
 import { UUIDVersion } from 'class-validator';
 import * as fs from 'fs';
 
@@ -128,18 +128,20 @@ export class MessageService {
       });
     }
 
-    const newFiles = files.map((f) => {
-      return this.file.create({
-        file: `${f.destination}/${f.filename}`,
-        date: new Date(),
-        message: savedMessage,
+    if (files) {
+      const newFiles = files.map((f) => {
+        return this.file.create({
+          file: `${f.destination}/${f.filename}`,
+          date: new Date(),
+          message: savedMessage,
+        });
       });
-    });
 
-    const savedFiles = await this.file.save(newFiles);
+      const savedFiles = await this.file.save(newFiles);
 
-    if (!savedFiles) {
-      files.forEach((f) => this.removeFiles(f));
+      if (!savedFiles) {
+        files.forEach((f) => this.removeFiles(f));
+      }
     }
     return this.message
       .createQueryBuilder('messages')
@@ -179,7 +181,7 @@ export class MessageService {
         .where('messages.friendsWithMess = :friendId', { friendId: f.id })
         .orderBy('messages.date', 'DESC')
         .getOne();
-        
+
       friendsWithMessages.push({ ...f, lastMessage: { ...mess } });
     }
 
@@ -214,48 +216,59 @@ export class MessageService {
     return { messages, page, pages };
   }
 
-  async editMessage(messageId: string, message: string) {
-    const { affected } = await this.message
-      .createQueryBuilder('messages')
-      .update()
-      .set({
-        message,
-      })
-      .where('id= :messageId', { messageId })
-      .execute();
-
-    if (affected) {
-      return this.message
+  async editMessage(userId: string, messageId: string, message: string) {
+    const messageToBeEdited = await this.message.findOne(messageId);
+    if (userId === messageToBeEdited.sentBy) {
+      const { affected } = await this.message
         .createQueryBuilder('messages')
-        .leftJoinAndSelect('messages.files', 'files')
-        .where('messages.id = :messageId', { messageId })
-        .getOne();
-    }
+        .update()
+        .set({
+          message,
+        })
+        .where('id= :messageId', { messageId })
+        .execute();
 
-    throw new NotFoundException({
-      message: 'update unsuccessful',
-    });
+      if (affected) {
+        return this.message
+          .createQueryBuilder('messages')
+          .leftJoinAndSelect('messages.files', 'files')
+          .where('messages.id = :messageId', { messageId })
+          .getOne();
+      }
+
+      throw new NotFoundException({
+        message: 'update unsuccessful',
+      });
+    }
+    throw new BadRequestException({ message: 'not allowed' });
   }
 
-  async deleteMessage(_username: string, messageId: string[]) {
+  async deleteMessage(userId: string, messageId: string[]) {
     const messages = await this.message.find({ id: In(messageId) });
-
-    messages.forEach((m) => {
-      if (m && m.files) {
-        m.files.forEach(async (f) => {
-          await fs.promises.rm(`./files/${f}`, {
-            recursive: true,
-            force: true,
+    const isAllowedToDelete = messages.filter((m) => m.sentBy !== userId);
+    console.log('isAllowed', isAllowedToDelete.length);
+    if (isAllowedToDelete && isAllowedToDelete.length === 0) {
+      messages.forEach(async (m) => {
+        if (m.files && m.files.length) {
+          m.files.forEach(async (f) => {
+            await fs.promises.rm(f.file, {
+              recursive: true,
+              force: true,
+            });
           });
+          await this.file.delete({ message: m });
+        }
+      });
+
+      try {
+        await this.message.delete({ id: In(messageId) });
+      } catch(e) {
+        console.log('error', e)
+        throw new NotFoundException({
+          message: 'delete unsuccessful',
         });
       }
-    });
-    const { affected } = await this.message.delete({ id: In(messageId) });
-
-    if (affected) return messages;
-
-    throw new NotFoundException({
-      message: 'delete unsuccessful',
-    });
+      return messages;
+    }
   }
 }

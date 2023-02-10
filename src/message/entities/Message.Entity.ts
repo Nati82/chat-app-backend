@@ -22,7 +22,7 @@ export class Message {
   @Column({ default: null })
   sentBy: string;
 
-  @OneToMany(() => File, (file) => file.message)
+  @OneToMany(() => File, (file) => file.message, { eager: true })
   files: File[];
 
   @Column('timestamp')

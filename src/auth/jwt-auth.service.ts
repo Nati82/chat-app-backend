@@ -11,12 +11,12 @@ export class JwtAuthService {
 
   async validateUser(username: string, password: string): Promise<User> {
     const Result = await this.authService.findOne(username);
-    console.log('password', password, 'result.password', Result.password);
-    const bcryptResult = bcrypt.compare(password, Result.password).then(res => console.log('res', res));
-    console.log('here again', await bcryptResult)
+    const bcryptResult = await bcrypt.compare(password, Result.password);
+    
     if (Result && bcryptResult) {
       return Result;
     }
+    
     return null;
   }
 }

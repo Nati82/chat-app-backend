@@ -42,7 +42,7 @@ export class MessageGateway
   @WebSocketServer() io: Namespace;
   connectedUsers: Map<string, User> = new Map();
 
-  async emitClientToFriends(userId: string) {
+  async emitClientToFriends(userId: string, event: string) {
     for (const [key, value] of this.connectedUsers) {
       const friendWith = await this.userService.isFriend(value.id, userId);
 
@@ -54,12 +54,12 @@ export class MessageGateway
           friendWith.acceptedBy['id'] === value.id &&
           friendWith.addedBy['id'] === userId
         ) {
-          this.io.to(key).emit('user_connected', friendWith.addedBy);
+          this.io.to(key).emit(event, friendWith.addedBy);
         } else if (
           friendWith.addedBy['id'] === value.id &&
           friendWith.acceptedBy['id'] === userId
         ) {
-          this.io.to(key).emit('user_connected', friendWith.acceptedBy);
+          this.io.to(key).emit(event, friendWith.acceptedBy);
         }
       }
     }
@@ -92,26 +92,20 @@ export class MessageGateway
   }
 
   async handleConnection(client: Socket) {
-    console.log(`connected client id: ${client.id}`);
-    console.log(`headers: ${client.handshake.headers.userid}`);
-    console.log(`sockets: ${this.io.sockets.size}`);
     const newConnectedUser = await this.authService.findOne({
       id: client.handshake.headers.userid,
     });
 
     if (newConnectedUser) this.connectedUsers.set(client.id, newConnectedUser);
-    console.log(`connected: ${this.connectedUsers.get(client.id).username}`);
 
     await this.emitFriendsToClient(client.id, newConnectedUser.id);
-    await this.emitClientToFriends(newConnectedUser.id);
+    await this.emitClientToFriends(newConnectedUser.id, 'user_connected');
   }
-  handleDisconnect(client: Socket) {
-    console.log(`disconnected client id: ${client.id}`);
-    console.log(`sockets: ${this.io.sockets.size}`);
-    const disconnectedUser = this.connectedUsers.get(client.id);
+
+  async handleDisconnect(client: Socket) {
+    const disConnectedUser = this.connectedUsers.get(client.id);
+    await this.emitClientToFriends(disConnectedUser.id, 'user_disconnected');
     this.connectedUsers.delete(client.id);
-    this.io.emit('user_disconnected', disconnectedUser);
-    console.log(`disconnected: ${!this.connectedUsers.has(client.id)}`);
   }
 
   @SubscribeMessage('send_message')
@@ -187,31 +181,29 @@ export class MessageGateway
     payload: DeleteMessageDto,
   ) {
     const { messages } = payload;
-    try {
-      const deletedMessages = await this.messageService.deleteMessage(
-        client.handshake.headers.userid as string,
-        messages,
-      );
 
-      if (deletedMessages) {
-        const sentTos = Array.from(this.connectedUsers).map(([key, val]) => {
-          for (const dm of deletedMessages) {
-            dm.friendsWithMess = null;
-            if (dm.sentTo === val.id)
-            return key;
-          }
-        });
+    const deletedMessages = await this.messageService.deleteMessage(
+      client.handshake.headers.userid as string,
+      messages,
+    );
 
-        if (sentTos && sentTos.length !== 0) {
-          sentTos.forEach((sentTo) =>
-            this.io.to(sentTo).emit('deleted_message', deletedMessages),
-          );
-
-          return deletedMessages;
+    if (deletedMessages) {
+      const sentTos = Array.from(this.connectedUsers).map(([key, val]) => {
+        for (const dm of deletedMessages) {
+          dm.friendsWithMess = null;
+          if (dm.sentTo === val.id) return key;
         }
+      });
+
+      if (sentTos && sentTos.length !== 0) {
+        sentTos.forEach((sentTo) =>
+          this.io.to(sentTo).emit('deleted_messages', deletedMessages),
+        );
+
+        return deletedMessages;
       }
-    } catch {
-      throw new WsException({ message: 'message not deleted' });
     }
+
+    throw new WsException({ message: 'message not deleted' });
   }
 }

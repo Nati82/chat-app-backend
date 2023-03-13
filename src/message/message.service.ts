@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeleteResult, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { UUIDVersion } from 'class-validator';
 import * as fs from 'fs';
 

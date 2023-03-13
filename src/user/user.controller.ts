@@ -94,6 +94,14 @@ export class UserController {
     return this.userService.friends(req.user.id);
   }
 
+  @ApiOkResponse({ type: FriendDto  })
+  @UseGuards(JwtAuthGuard)
+  @Get('isFriend/:senToId/:sentById')
+  @Serialize(FriendDto)
+  async isFriend(@Req() req: any, @Param('sentToId') sentTo: string, @Param('sentById') sentBy: string) {
+    return this.userService.isFriend(sentBy, sentTo);
+  }
+
   @ApiOkResponse({ type: FriendDto })
   @ApiBody({ type: FriendDto })
   @UseGuards(JwtAuthGuard)
